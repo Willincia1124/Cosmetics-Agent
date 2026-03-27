@@ -70,10 +70,24 @@ def format_agent_response(response: AgentResponse, global_cautions: list[str]) -
             lines.append(f"- {chunk.title}：{chunk.content}")
         lines.append("")
 
+    if response.plan_steps:
+        lines.append("=== Planner 执行计划 ===")
+        for item in response.plan_steps:
+            lines.append(f"- {item}")
+        lines.append("")
+
     if response.tool_events:
         lines.append("=== Tool Calling 记录 ===")
         for event in response.tool_events:
             lines.append(f"- {event.tool_name} [{event.status}] | 输入: {event.input_summary} | 输出: {event.output_summary}")
+        lines.append("")
+
+    if response.multi_agent_steps:
+        lines.append("=== 多 Agent 协作 ===")
+        for step in response.multi_agent_steps:
+            lines.append(f"- {step.agent_name} | {step.responsibility}")
+            lines.append(f"  输入：{step.input_summary}")
+            lines.append(f"  输出：{step.output_summary}")
         lines.append("")
 
     if response.react_steps:
@@ -93,6 +107,12 @@ def format_agent_response(response: AgentResponse, global_cautions: list[str]) -
         lines.append("=== 长期记忆片段 ===")
         for item in response.long_term_memories[:3]:
             lines.append(f"- {item['content']}")
+        lines.append("")
+
+    if response.self_check_notes:
+        lines.append("=== Self-check 结果 ===")
+        for item in response.self_check_notes[:4]:
+            lines.append(f"- {item}")
         lines.append("")
 
     lines.append("=== 推荐结果 ===")

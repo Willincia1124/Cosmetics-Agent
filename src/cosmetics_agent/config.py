@@ -18,6 +18,21 @@ class LLMConfig:
     def from_env(cls) -> "LLMConfig | None":
         provider = os.getenv("LLM_PROVIDER", "openrouter").strip().lower()
 
+        if provider in {"ark", "doubao"}:
+            api_key = os.getenv("ARK_API_KEY", "").strip()
+            if not api_key:
+                return None
+            base_url = os.getenv(
+                "ARK_BASE_URL",
+                "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+            ).strip()
+            return cls(
+                provider="ark",
+                api_key=api_key,
+                model=os.getenv("LLM_MODEL", "doubao-seed-1-6-250615").strip(),
+                base_url=base_url,
+            )
+
         if provider == "openrouter":
             api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
             if not api_key:

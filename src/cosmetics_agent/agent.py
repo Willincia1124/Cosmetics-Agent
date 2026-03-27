@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from .formatter import format_agent_response
-from .guardrails import build_global_cautions
 from .llm import LLMClient
 from .models import AgentResponse
 from .memory import SessionMemory
-from .parser import build_clarifying_questions, parse_user_query
-from .rag import retrieve_knowledge
-from .recommender import recommend_products
+from .multi_agent import MultiAgentBeautyAdvisor
+from .parser import parse_user_query
 from .config import LLMConfig, ToolConfig
 from .research import ResearchOrchestrator
 from .toolbox import ResearchToolbox
@@ -27,42 +25,46 @@ class BeautyAdvisorAgent:
             if tool_config.enabled
             else None
         )
+        self.multi_agent = MultiAgentBeautyAdvisor(llm=self.llm, research=self.research)
 
     def run(self, query: str, top_k: int = 3) -> AgentResponse:
         profile = parse_user_query(query)
+        memory_summary = ""
+        long_term_memories: list[dict[str, str]] = []
         if self.memory is not None:
             profile = self.memory.merge(profile)
-        clarifying_questions = build_clarifying_questions(profile)
-        retrieved_knowledge = retrieve_knowledge(profile)
+            memory_summary = self.memory.get_session_summary()
+            long_term_memories = self.memory.get_long_term_memories(limit=5)
+
         llm_enabled = self.llm is not None
-
-        if self.llm is not None:
-            enhanced_profile = self.llm.enhance_profile(query, profile, retrieved_knowledge)
-            profile = enhanced_profile
-            clarifying_questions = build_clarifying_questions(profile)
-            retrieved_knowledge = retrieve_knowledge(profile)
-
-        recommendations = recommend_products(profile, top_k=top_k, retrieved_knowledge=retrieved_knowledge)
-        llm_summary = ""
-        if self.llm is not None and recommendations:
-            recommendations, llm_summary = self.llm.rerank_and_explain(profile, recommendations, retrieved_knowledge)
-
-        tool_events = []
-        react_steps = []
-        if self.research is not None:
-            tool_events, react_steps = self.research.enrich_recommendations(query, profile, recommendations, top_k=min(2, top_k))
-
-        summary = self._build_summary(profile, recommendations, clarifying_questions, retrieved_knowledge, llm_summary)
-        response = AgentResponse(
+        multi_result = self.multi_agent.run(
+            query=query,
             profile=profile,
-            recommendations=recommendations,
-            clarifying_questions=clarifying_questions,
+            top_k=top_k,
+            memory_summary=memory_summary,
+            long_term_memories=long_term_memories,
+        )
+
+        summary = self._build_summary(
+            multi_result.profile,
+            multi_result.recommendations,
+            multi_result.clarifying_questions,
+            multi_result.retrieved_knowledge,
+            multi_result.llm_summary,
+        )
+        response = AgentResponse(
+            profile=multi_result.profile,
+            recommendations=multi_result.recommendations,
+            clarifying_questions=multi_result.clarifying_questions,
             summary=summary,
-            retrieved_knowledge=retrieved_knowledge,
+            retrieved_knowledge=multi_result.retrieved_knowledge,
             llm_enabled=llm_enabled,
             live_tools_enabled=self.research is not None,
-            tool_events=tool_events,
-            react_steps=react_steps,
+            tool_events=multi_result.tool_events,
+            react_steps=multi_result.react_steps,
+            multi_agent_steps=multi_result.multi_agent_steps,
+            plan_steps=multi_result.plan_steps,
+            self_check_notes=multi_result.self_check_notes,
         )
         if self.memory is not None:
             self.memory.remember_turn(query, response)
@@ -73,7 +75,7 @@ class BeautyAdvisorAgent:
 
     def render(self, query: str, top_k: int = 3) -> str:
         response = self.run(query, top_k=top_k)
-        global_cautions = build_global_cautions(response.profile, response.recommendations)
+        global_cautions = self.multi_agent.safety_agent.run(response.profile, response.recommendations)[0]
         return format_agent_response(response, global_cautions)
 
     def _build_summary(self, profile, recommendations, clarifying_questions, retrieved_knowledge, llm_summary) -> str:

@@ -80,6 +80,9 @@ class AgentResponse:
     recent_messages: list[dict[str, str]] = field(default_factory=list)
     long_term_memories: list[dict[str, str]] = field(default_factory=list)
     react_steps: list["ReActStep"] = field(default_factory=list)
+    multi_agent_steps: list["MultiAgentStep"] = field(default_factory=list)
+    plan_steps: list[str] = field(default_factory=list)
+    self_check_notes: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -123,3 +126,17 @@ class ReActStep:
     thought: str
     action: str
     observation: str
+
+
+@dataclass(slots=True)
+class MultiAgentStep:
+    agent_name: str
+    responsibility: str
+    input_summary: str
+    output_summary: str
+
+
+@dataclass(slots=True)
+class PlanStep:
+    title: str
+    done: bool = False

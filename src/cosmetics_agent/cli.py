@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from .agent import BeautyAdvisorAgent
+from .evals import DEFAULT_EVAL_DATASET, format_eval_run, run_evals
 from .memory import SessionMemory
 from .parser import parse_user_query
 from .rag import retrieve_knowledge
@@ -34,6 +35,10 @@ def build_parser() -> argparse.ArgumentParser:
     memory_parser.add_argument("--session-id", default="default-session", help="Session id for short-term memory")
     memory_parser.add_argument("--user-id", default="local-user", help="User id for long-term memory")
     memory_parser.add_argument("--message-window", type=int, default=6, help="Recent raw message window")
+
+    eval_parser = subparsers.add_parser("eval", help="Run offline evaluation cases")
+    eval_parser.add_argument("--dataset", default=str(DEFAULT_EVAL_DATASET), help="Path to JSONL eval dataset")
+    eval_parser.add_argument("--case-id", help="Only run a single eval case")
     return parser
 
 
@@ -112,6 +117,16 @@ def run_memory(session_id: str, user_id: str, message_window: int) -> int:
     return 0
 
 
+def run_eval(dataset: str, case_id: str | None) -> int:
+    try:
+        result = run_evals(dataset_path=dataset, case_id=case_id)
+    except ValueError as exc:
+        print(f"Eval error: {exc}")
+        return 1
+    print(format_eval_run(result))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -124,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_kb(args.query, args.top_k)
     if args.command == "memory":
         return run_memory(args.session_id, args.user_id, args.message_window)
+    if args.command == "eval":
+        return run_eval(args.dataset, args.case_id)
 
     parser.print_help()
     return 1
