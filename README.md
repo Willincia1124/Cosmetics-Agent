@@ -56,6 +56,39 @@ PYTHONPATH=src python3 -m cosmetics_agent.cli eval
 pip install -e .
 ```
 
+## Web 入口
+
+现在项目除了 CLI，也支持一个最小可用的 Web 入口，适合直接体验聊天式交互。
+
+启动方式：
+
+```bash
+pip install -e .
+PYTHONPATH=src python3.11 -m uvicorn cosmetics_agent.webapp:app --reload
+```
+
+启动后打开：
+
+[http://127.0.0.1:8000](http://127.0.0.1:8000)
+
+当前 Web 版支持：
+
+- 聊天式用户入口
+- 推荐结果卡片展示
+- Planner / Self-check / Tool Calling 信息展示
+- 基础会话记忆查看
+- 当前 session 重置
+
+如果你想让 Web 版也走 LLM 和 live tools，可以先设置环境变量再启动：
+
+```bash
+export LLM_PROVIDER=ark
+export ARK_API_KEY=你的_key
+export LLM_MODEL=你的方舟模型ID或推理接入点ID
+export LIVE_TOOLS_ENABLED=1
+PYTHONPATH=src python3.11 -m uvicorn cosmetics_agent.webapp:app --reload
+```
+
 ## 记忆系统
 
 当前内置了一个简单但完整的记忆层，默认落盘到：

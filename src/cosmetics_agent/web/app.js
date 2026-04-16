@@ -10,11 +10,19 @@ const refreshSessionBtn = document.getElementById("refresh-session");
 const resetSessionBtn = document.getElementById("reset-session");
 const sessionSummary = document.getElementById("session-summary");
 const longTermMemories = document.getElementById("long-term-memories");
+const historyList = document.getElementById("history-list");
+const openControlsBtn = document.getElementById("open-controls");
+const closeControlsBtn = document.getElementById("close-controls");
+const controlDrawer = document.getElementById("control-drawer");
+const panelBackdrop = document.getElementById("panel-backdrop");
 const template = document.getElementById("message-template");
 
 chatForm.addEventListener("submit", onSubmit);
 refreshSessionBtn.addEventListener("click", () => loadSession());
 resetSessionBtn.addEventListener("click", () => resetSession());
+openControlsBtn.addEventListener("click", () => toggleControls(true));
+closeControlsBtn.addEventListener("click", () => toggleControls(false));
+panelBackdrop.addEventListener("click", () => toggleControls(false));
 
 addWelcomeMessage();
 loadSession();
@@ -64,6 +72,7 @@ async function loadSession() {
       throw new Error(data.detail || "加载会话失败");
     }
     sessionSummary.textContent = data.session_summary || "暂无会话摘要";
+    renderHistory(data.recent_messages || []);
     longTermMemories.innerHTML = "";
     const memories = data.long_term_memories || [];
     if (!memories.length) {
@@ -102,6 +111,7 @@ async function resetSession() {
     chatThread.innerHTML = "";
     addWelcomeMessage("会话已重置，现在可以重新开始。");
     await loadSession();
+    toggleControls(false);
     setLoading(false, "会话已重置");
   } catch (error) {
     appendSystemNotice(`重置失败：${error.message}`);
@@ -160,6 +170,30 @@ function appendSystemNotice(text) {
   const article = createMessageCard("assistant");
   article.querySelector(".message-body").innerHTML = `<p>${escapeHtml(text)}</p>`;
   chatThread.appendChild(article);
+}
+
+function renderHistory(messages) {
+  historyList.innerHTML = "";
+  if (!messages.length) {
+    historyList.innerHTML = `<div class="history-empty">还没有历史记录，先开始一轮对话吧。</div>`;
+    return;
+  }
+
+  messages.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = `history-card ${item.role}`;
+    card.innerHTML = `
+      <div class="history-role">${item.role === "user" ? "你" : "助手"}</div>
+      <div class="history-text">${escapeHtml(item.content)}</div>
+    `;
+    historyList.appendChild(card);
+  });
+}
+
+function toggleControls(open) {
+  controlDrawer.classList.toggle("open", open);
+  controlDrawer.setAttribute("aria-hidden", String(!open));
+  panelBackdrop.hidden = !open;
 }
 
 function createMessageCard(role) {
