@@ -11,7 +11,10 @@ requires-python = ">=3.11"
 authors = [
   { name = "Codex" }
 ]
-dependencies = []
+dependencies = [
+  "fastapi>=0.115.0,<1.0.0",
+  "uvicorn>=0.30.0,<1.0.0",
+]
 
 [project.scripts]
 cosmetics-agent = "cosmetics_agent.cli:main"
@@ -22,3 +25,5 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+cosmetics_agent = ["web/*"]

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cosmetics Agent</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-kicker">Cosmetics Agent</div>
+          <h1>你的美妆导购实验台</h1>
+          <p>输入肤质、预算、场景和诉求，系统会给出推荐、解释和购买线索。</p>
+        </div>
+
+        <section class="panel">
+          <h2>会话设置</h2>
+          <label>
+            <span>Session ID</span>
+            <input id="session-id" value="web-demo-session" />
+          </label>
+          <label>
+            <span>User ID</span>
+            <input id="user-id" value="web-demo-user" />
+          </label>
+          <label>
+            <span>Top K</span>
+            <input id="top-k" type="number" min="1" max="5" value="3" />
+          </label>
+          <button id="reset-session" class="ghost">重置当前会话</button>
+        </section>
+
+        <section class="panel" id="memory-panel">
+          <div class="panel-header">
+            <h2>记忆概览</h2>
+            <button id="refresh-session" class="ghost small">刷新</button>
+          </div>
+          <div id="session-summary" class="muted">暂无会话摘要</div>
+          <div id="long-term-memories" class="pill-list"></div>
+        </section>
+      </aside>
+
+      <main class="main">
+        <section class="hero-card">
+          <div>
+            <div class="hero-kicker">Beauty Advisor</div>
+            <h2>经典对话式入口</h2>
+            <p>先把用户链路跑通：聊天、推荐、过程解释、购买链接、会话记忆。</p>
+          </div>
+          <div class="hero-tips">
+            <span>支持多 Agent</span>
+            <span>支持记忆</span>
+            <span>支持 RAG</span>
+            <span>支持 Tool Calling</span>
+          </div>
+        </section>
+
+        <section id="chat-thread" class="chat-thread"></section>
+
+        <form id="chat-form" class="composer">
+          <textarea
+            id="chat-input"
+            placeholder="例如：我是混油痘肌，预算300，想找清爽不闷痘的防晒，最好避开香精。"
+            rows="3"
+          ></textarea>
+          <div class="composer-actions">
+            <div id="status-text" class="muted">准备就绪</div>
+            <button id="send-btn" type="submit">发送</button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <template id="message-template">
+      <article class="message-card">
+        <div class="message-role"></div>
+        <div class="message-body"></div>
+      </article>
+    </template>
+
+    <script src="/assets/app.js" defer></script>
+  </body>
+  </html>

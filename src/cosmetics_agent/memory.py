@@ -145,6 +145,16 @@ class MemoryStore:
             for row in rows
         ]
 
+    def clear_session(self, session_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM session_messages WHERE session_id = ?", (session_id,))
+            conn.execute("DELETE FROM session_state WHERE session_id = ?", (session_id,))
+
+    def clear_user_memory(self, user_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (user_id,))
+            conn.execute("DELETE FROM user_memories WHERE user_id = ?", (user_id,))
+
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.executescript(
@@ -252,6 +262,15 @@ class SessionMemory:
                 content=fact["content"],
                 tags=fact["tags"],
             )
+
+    def clear_session(self) -> None:
+        self.store.clear_session(self.session_id)
+        self._session_profile = None
+        self._session_summary = ""
+
+    def clear_user_memory(self) -> None:
+        self.store.clear_user_memory(self.user_id)
+        self._long_term_profile = None
 
 
 def _profile_to_json(profile: UserProfile) -> str:
