@@ -13,15 +13,19 @@ const longTermMemories = document.getElementById("long-term-memories");
 const historyList = document.getElementById("history-list");
 const openControlsBtn = document.getElementById("open-controls");
 const closeControlsBtn = document.getElementById("close-controls");
+const toggleDevModeBtn = document.getElementById("toggle-dev-mode");
 const controlDrawer = document.getElementById("control-drawer");
 const panelBackdrop = document.getElementById("panel-backdrop");
 const template = document.getElementById("message-template");
+let devMode = false;
+const assistantMessages = [];
 
 chatForm.addEventListener("submit", onSubmit);
 refreshSessionBtn.addEventListener("click", () => loadSession());
 resetSessionBtn.addEventListener("click", () => resetSession());
 openControlsBtn.addEventListener("click", () => toggleControls(true));
 closeControlsBtn.addEventListener("click", () => toggleControls(false));
+toggleDevModeBtn.addEventListener("click", () => toggleDevMode());
 panelBackdrop.addEventListener("click", () => toggleControls(false));
 
 addWelcomeMessage();
@@ -109,6 +113,7 @@ async function resetSession() {
       throw new Error(data.detail || "重置失败");
     }
     chatThread.innerHTML = "";
+    assistantMessages.length = 0;
     addWelcomeMessage("会话已重置，现在可以重新开始。");
     await loadSession();
     toggleControls(false);
@@ -136,12 +141,15 @@ function appendAssistantMessage(payload) {
   const article = createMessageCard("assistant");
   const body = article.querySelector(".message-body");
 
-  const sections = [];
-  sections.push(`<p>${escapeHtml(payload.summary || "已生成推荐。")}</p>`);
+  body.innerHTML = renderAssistantSections(payload);
+  assistantMessages.push({ body, payload });
+  chatThread.appendChild(article);
+  article.scrollIntoView({ behavior: "smooth", block: "end" });
+}
 
-  if (payload.profile) {
-    sections.push(renderProfile(payload.profile));
-  }
+function renderAssistantSections(payload) {
+  const sections = [];
+  sections.push(`<p class="assistant-summary">${escapeHtml(payload.summary || "已生成推荐。")}</p>`);
   if (payload.recommendations?.length) {
     sections.push(renderRecommendations(payload.recommendations));
   }
@@ -151,19 +159,23 @@ function appendAssistantMessage(payload) {
   if (payload.global_cautions?.length) {
     sections.push(renderListBlock("使用提醒", payload.global_cautions));
   }
-  if (payload.plan_steps?.length) {
-    sections.push(renderListBlock("Planner 执行计划", payload.plan_steps));
-  }
-  if (payload.self_check_notes?.length) {
-    sections.push(renderListBlock("Self-check", payload.self_check_notes));
-  }
-  if (payload.tool_events?.length) {
-    sections.push(renderToolEvents(payload.tool_events));
+
+  if (devMode) {
+    if (payload.profile) {
+      sections.push(renderProfile(payload.profile));
+    }
+    if (payload.plan_steps?.length) {
+      sections.push(renderListBlock("Planner 执行计划", payload.plan_steps));
+    }
+    if (payload.self_check_notes?.length) {
+      sections.push(renderListBlock("Self-check", payload.self_check_notes));
+    }
+    if (payload.tool_events?.length) {
+      sections.push(renderToolEvents(payload.tool_events));
+    }
   }
 
-  body.innerHTML = sections.join("");
-  chatThread.appendChild(article);
-  article.scrollIntoView({ behavior: "smooth", block: "end" });
+  return sections.join("");
 }
 
 function appendSystemNotice(text) {
@@ -196,6 +208,15 @@ function toggleControls(open) {
   panelBackdrop.hidden = !open;
 }
 
+function toggleDevMode() {
+  devMode = !devMode;
+  toggleDevModeBtn.setAttribute("aria-pressed", String(devMode));
+  toggleDevModeBtn.textContent = devMode ? "Develop Mode · ON" : "Develop Mode";
+  assistantMessages.forEach((message) => {
+    message.body.innerHTML = renderAssistantSections(message.payload);
+  });
+}
+
 function createMessageCard(role) {
   const node = template.content.firstElementChild.cloneNode(true);
   node.classList.add(role);
@@ -221,28 +242,36 @@ function renderProfile(profile) {
 }
 
 function renderRecommendations(recommendations) {
-  const cards = recommendations
+  const topRecommendations = recommendations.slice(0, 3);
+  const summary = buildRecommendationSummary(topRecommendations);
+  const cards = topRecommendations
     .map((item, index) => {
       const product = item.product || {};
       const evidence = item.evidence?.map((chunk) => chunk.title).join("、");
       const links = item.purchase_links?.map((link) => `<li><a href="${escapeAttribute(link.url)}" target="_blank" rel="noreferrer">${escapeHtml(link.platform || "购买链接")}</a></li>`).join("") || "";
+      const features = buildProductFeatures(product);
+      const reasons = (item.reasons || []).slice(0, 3);
+      const advantage = reasons.join("；") || "与你的肤质、预算和使用诉求整体匹配。";
       return `
-        <article class="recommendation-card">
-          <h4>${index + 1}. ${escapeHtml(product.name || "未命名商品")}</h4>
-          <div class="kv">
-            <span class="tag">${escapeHtml(product.brand || "Unknown")}</span>
-            <span class="tag">${escapeHtml(product.category || "Unknown")}</span>
-            <span class="tag">${escapeHtml(String(product.price ?? "-"))} 元</span>
+        <article class="recommendation-card featured">
+          <div class="recommendation-rank">推荐 ${index + 1}</div>
+          <div class="recommendation-main">
+            <div>
+              <h4>${escapeHtml(product.name || "未命名商品")}</h4>
+              <p class="product-subtitle">${escapeHtml(product.brand || "Unknown")} · ${escapeHtml(product.category || "Unknown")} · ${escapeHtml(String(product.price ?? "-"))} 元</p>
+            </div>
+            ${devMode ? `<div class="score-pill">匹配度 ${escapeHtml(formatScore(item.score))}</div>` : ""}
           </div>
-          <div class="inline-list">
-            <ul>
-              ${(item.reasons || []).slice(0, 3).map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
-            </ul>
+
+          <p class="recommendation-copy">${escapeHtml(advantage)}</p>
+          <div class="feature-pills">
+            ${features.map((feature) => `<span>${escapeHtml(feature)}</span>`).join("")}
           </div>
-          ${product.notes ? `<p class="muted">${escapeHtml(product.notes)}</p>` : ""}
-          ${evidence ? `<p class="muted">知识依据：${escapeHtml(evidence)}</p>` : ""}
-          ${item.live_insights?.length ? `<p class="muted">实时线索：${escapeHtml(item.live_insights.join("；"))}</p>` : ""}
-          ${links ? `<div class="links"><strong>购买链接</strong><ul>${links}</ul></div>` : ""}
+
+          ${product.notes && devMode ? `<p class="muted">商品备注：${escapeHtml(product.notes)}</p>` : ""}
+          ${evidence && devMode ? `<p class="muted">知识依据：${escapeHtml(evidence)}</p>` : ""}
+          ${item.live_insights?.length && devMode ? `<p class="muted">实时线索：${escapeHtml(item.live_insights.join("；"))}</p>` : ""}
+          ${links ? `<div class="links purchase-links"><strong>购买入口</strong><ul>${links}</ul></div>` : ""}
         </article>
       `;
     })
@@ -250,10 +279,47 @@ function renderRecommendations(recommendations) {
 
   return `
     <section class="section-block">
-      <h3>推荐结果</h3>
+      <h3>推荐方案</h3>
+      <div class="recommendation-overview">
+        <strong>${escapeHtml(summary.title)}</strong>
+        <p>${escapeHtml(summary.description)}</p>
+      </div>
       <div class="recommendation-grid">${cards}</div>
     </section>
   `;
+}
+
+function buildRecommendationSummary(recommendations) {
+  if (!recommendations.length) {
+    return {
+      title: "暂时没有找到特别匹配的商品",
+      description: "可以补充肤质、预算、使用场景或想避开的成分，我会继续缩小范围。",
+    };
+  }
+
+  const top = recommendations[0];
+  const product = top.product || {};
+  const names = recommendations.map((item) => item.product?.name).filter(Boolean);
+  const concerns = top.reasons?.slice(0, 2).join("；") || "综合匹配度较高";
+  return {
+    title: `优先推荐 ${product.name || names[0] || "第 1 个商品"}`,
+    description: `这次筛出 ${recommendations.length} 个候选，整体优先考虑肤质适配、预算、功效诉求和成分避雷。首推理由是：${concerns}。`,
+  };
+}
+
+function buildProductFeatures(product) {
+  const features = [];
+  if (product.finish) features.push(`肤感/妆效偏 ${product.finish}`);
+  if (product.tags?.length) features.push(`关键词：${product.tags.slice(0, 3).join("、")}`);
+  if (product.hero_ingredients?.length) features.push(`核心成分：${product.hero_ingredients.slice(0, 3).join("、")}`);
+  if (product.free_from_ingredients?.length) features.push(`避开：${product.free_from_ingredients.slice(0, 3).join("、")}`);
+  if (!features.length) features.push("综合定位均衡，适合作为备选。");
+  return features.slice(0, 4);
+}
+
+function formatScore(score) {
+  if (score == null || Number.isNaN(Number(score))) return "-";
+  return Number(score).toFixed(1);
 }
 
 function renderListBlock(title, items) {
