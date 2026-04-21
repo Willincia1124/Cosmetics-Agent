@@ -50,6 +50,7 @@ class ResearchOrchestrator:
             purchase_links = self.toolbox.get_purchase_links(
                 product_name=item.product.name,
                 brand=item.product.brand,
+                search_query=_build_marketplace_search_query(profile, item),
                 top_k=3,
             )
             item.purchase_links = purchase_links
@@ -191,3 +192,44 @@ def _summarize_tool_result(result: dict) -> str:
     if "error" in result:
         return str(result["error"])[:120]
     return "无结构化结果"
+
+
+def _build_marketplace_search_query(profile: UserProfile, item: Recommendation) -> str:
+    parts: list[str] = []
+    if item.product.category:
+        category_map = {
+            "cleanser": "洁面",
+            "serum": "精华",
+            "moisturizer": "面霜 乳液",
+            "sunscreen": "防晒霜",
+            "foundation": "粉底液 底妆",
+            "lip": "口红 唇釉",
+        }
+        parts.append(category_map.get(item.product.category, item.product.category))
+    if "oily" in profile.skin_types or "combination" in profile.skin_types:
+        parts.append("油皮 混油")
+    if "acne_prone" in profile.skin_types:
+        parts.append("痘肌 不闷痘")
+    if "sensitive" in profile.skin_types:
+        parts.append("敏感肌")
+    if "light" in profile.finish_preferences:
+        parts.append("清爽")
+    if profile.concerns:
+        concern_map = {
+            "uv_protection": "防晒",
+            "hydrating": "保湿",
+            "barrier_support": "修护",
+            "brightening": "提亮",
+            "oil_control": "控油",
+            "anti_acne": "祛痘",
+            "soothing": "舒缓",
+        }
+        parts.extend(concern_map[item] for item in profile.concerns if item in concern_map)
+    if profile.avoided_ingredients:
+        if "fragrance" in profile.avoided_ingredients:
+            parts.append("无香精")
+        if "alcohol_denat" in profile.avoided_ingredients:
+            parts.append("无酒精")
+    if not parts:
+        parts.extend([item.product.brand, item.product.name])
+    return " ".join(part for part in parts if part).strip()

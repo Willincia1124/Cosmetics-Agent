@@ -122,6 +122,8 @@ class LLMClient:
             f"候选商品：{candidate_text}\n"
             "目标：为候选商品补充实时网页线索和购买链接。"
             "优先获取购买链接，其次在必要时提取商品页摘要。"
+            "如果候选商品看起来像本地演示商品名，请在 get_purchase_links 参数中补充 search_query，"
+            "用用户真实需求生成中文电商搜索词，例如“混油痘肌 清爽 防晒霜 无香精”。"
         )
 
         executed_calls: list[dict] = []

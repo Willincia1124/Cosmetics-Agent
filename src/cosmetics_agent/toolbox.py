@@ -12,6 +12,9 @@ from .models import ExtractedProductInfo, PurchaseLink, SearchResult, ToolEvent
 
 DUCKDUCKGO_HTML_SEARCH = "https://html.duckduckgo.com/html/"
 COMMON_SHOPPING_DOMAINS = (
+    "taobao.com",
+    "tmall.com",
+    "jd.com",
     "sephora.com",
     "ulta.com",
     "amazon.com",
@@ -19,10 +22,18 @@ COMMON_SHOPPING_DOMAINS = (
     "target.com",
     "lookfantastic.com",
     "yesstyle.com",
-    "tmall.com",
-    "jd.com",
 )
 BANNED_RESULT_HINTS = ("reddit.com", "youtube.com", "tiktok.com", "instagram.com", "facebook.com")
+MARKETPLACE_SEARCH_URLS = {
+    "taobao": "https://s.taobao.com/search?q={query}",
+    "tmall": "https://list.tmall.com/search_product.htm?q={query}",
+    "jd": "https://search.jd.com/Search?keyword={query}&enc=utf-8",
+}
+MARKETPLACE_DISPLAY_NAMES = {
+    "taobao": "淘宝",
+    "tmall": "天猫",
+    "jd": "京东",
+}
 
 
 class ResearchToolbox:
@@ -91,6 +102,7 @@ class ResearchToolbox:
                         "properties": {
                             "product_name": {"type": "string"},
                             "brand": {"type": "string"},
+                            "search_query": {"type": "string"},
                             "top_k": {"type": "integer", "default": 3},
                             "preferred_platforms": {"type": "array", "items": {"type": "string"}},
                         },
@@ -123,6 +135,7 @@ class ResearchToolbox:
             results = self.get_purchase_links(
                 product_name=str(arguments.get("product_name", "")),
                 brand=str(arguments.get("brand", "")),
+                search_query=str(arguments.get("search_query", "")),
                 top_k=int(arguments.get("top_k", 3)),
                 preferred_platforms=_as_str_list(arguments.get("preferred_platforms")),
             )
@@ -170,10 +183,12 @@ class ResearchToolbox:
         self,
         product_name: str,
         brand: str = "",
+        search_query: str = "",
         top_k: int = 3,
         preferred_platforms: list[str] | None = None,
     ) -> list[PurchaseLink]:
         domains = preferred_platforms or list(COMMON_SHOPPING_DOMAINS)
+        marketplace_query = search_query.strip() or " ".join(part for part in [brand, product_name] if part).strip()
         results = self.search_products(product_name=product_name, brand=brand, top_k=max(top_k * 2, 6), preferred_domains=domains)
         links: list[PurchaseLink] = []
         for result in results:
@@ -190,6 +205,12 @@ class ResearchToolbox:
             )
             if len(links) >= top_k:
                 break
+        for link in _build_marketplace_search_links(marketplace_query, top_k=top_k, preferred_platforms=preferred_platforms):
+            if len(links) >= top_k:
+                break
+            if any(existing.url == link.url for existing in links):
+                continue
+            links.append(link)
         return links
 
     def _search(self, query: str, top_k: int = 5, preferred_domains: list[str] | None = None) -> list[SearchResult]:
@@ -320,6 +341,57 @@ def _as_str_list(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item).strip() for item in value if str(item).strip()]
     return []
+
+
+def _build_marketplace_search_links(
+    query: str,
+    top_k: int,
+    preferred_platforms: list[str] | None = None,
+) -> list[PurchaseLink]:
+    if not query.strip():
+        return []
+    normalized = _normalize_marketplace_names(preferred_platforms)
+    platforms = normalized or ["taobao", "tmall", "jd"]
+    encoded_query = urllib.parse.quote(query.strip())
+    links: list[PurchaseLink] = []
+    for platform in platforms:
+        template = MARKETPLACE_SEARCH_URLS.get(platform)
+        if template is None:
+            continue
+        display_name = MARKETPLACE_DISPLAY_NAMES.get(platform, platform)
+        links.append(
+            PurchaseLink(
+                title=f"{display_name}搜索：{query.strip()}",
+                url=template.format(query=encoded_query),
+                platform=display_name,
+                price_text="以平台实时价格为准",
+                seller_type="marketplace_search",
+            )
+        )
+        if len(links) >= top_k:
+            break
+    return links
+
+
+def _normalize_marketplace_names(platforms: list[str] | None) -> list[str]:
+    if not platforms:
+        return []
+    aliases = {
+        "淘宝": "taobao",
+        "taobao": "taobao",
+        "tmall": "tmall",
+        "天猫": "tmall",
+        "jd": "jd",
+        "jingdong": "jd",
+        "京东": "jd",
+    }
+    normalized: list[str] = []
+    for item in platforms:
+        key = item.strip().lower()
+        mapped = aliases.get(key) or aliases.get(item.strip())
+        if mapped and mapped not in normalized:
+            normalized.append(mapped)
+    return normalized
 
 
 def _is_banned_domain(domain: str) -> bool:
