@@ -78,6 +78,15 @@ class LocalVectorStore:
             )
         return rows
 
+    def reset_collection(self) -> None:
+        if not self.enabled():
+            return
+        client = self._client()
+        try:
+            client.delete_collection(name=self.config.collection_name)
+        except Exception:
+            pass
+
     @lru_cache(maxsize=1)
     def _client(self):
         import chromadb

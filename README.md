@@ -81,6 +81,41 @@ export CHROMA_PERSIST_PATH=/your/local/path
 export CHROMA_COLLECTION_NAME=knowledge_base
 ```
 
+## 离线知识库丰富任务
+
+项目现在支持一个本地手动触发的知识库 enrichment 任务，用来从当前商品库和公开网页资料中生成候选知识条目。
+
+生成候选知识：
+
+```bash
+PYTHONPATH=src python3.11 -m cosmetics_agent.cli enrich-kb --limit 3
+```
+
+只看单个商品并且不落盘：
+
+```bash
+PYTHONPATH=src python3.11 -m cosmetics_agent.cli enrich-kb --product-id sun-001 --dry-run
+```
+
+默认会生成这些目录：
+
+- `data/knowledge_staging/`
+- `data/knowledge_reports/`
+- `data/knowledge_snapshots/`
+
+审核通过后合并入正式知识库：
+
+```bash
+PYTHONPATH=src python3.11 -m cosmetics_agent.cli approve-kb --approve-file data/knowledge_staging/<run_id>.jsonl
+```
+
+合并时会：
+
+- 备份当前 `knowledge_base.jsonl`
+- 做二次校验和去重
+- 归档已处理的 staging 文件
+- 自动重建本地 Chroma 索引
+
 ## Sample Input
 
 ```text

@@ -6,9 +6,12 @@ import sys
 from .agent import BeautyAdvisorAgent
 from .config import VectorStoreConfig
 from .evals import DEFAULT_EVAL_DATASET, format_eval_run, run_evals
+from .knowledge_enrichment import KnowledgeEnricher
+from .knowledge_review import approve_candidates
 from .memory import SessionMemory
 from .parser import parse_user_query
 from .rag import retrieve_knowledge, vector_store_enabled
+from .toolbox import ResearchToolbox
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +34,18 @@ def build_parser() -> argparse.ArgumentParser:
     kb_parser = subparsers.add_parser("kb", help="Inspect retrieved knowledge chunks")
     kb_parser.add_argument("--query", required=True, help="User query in Chinese")
     kb_parser.add_argument("--top-k", type=int, default=5, help="Number of knowledge chunks")
+
+    enrich_parser = subparsers.add_parser("enrich-kb", help="Generate staged knowledge candidates from products and public web data")
+    enrich_parser.add_argument("--category", help="Only enrich one category")
+    enrich_parser.add_argument("--product-id", help="Only enrich one product id")
+    enrich_parser.add_argument("--limit", type=int, help="Limit number of products")
+    enrich_parser.add_argument("--dry-run", action="store_true", help="Run without writing staging/report files")
+    enrich_parser.add_argument("--output-dir", help="Base output directory for staging/report/snapshot files")
+    enrich_parser.add_argument("--source-mode", default="public_web", help="Source mode, default public_web")
+
+    approve_parser = subparsers.add_parser("approve-kb", help="Approve staged knowledge candidates into formal knowledge base")
+    approve_parser.add_argument("--approve-file", required=True, help="Path to staging jsonl file")
+    approve_parser.add_argument("--output-dir", help="Base output directory for snapshot files")
 
     memory_parser = subparsers.add_parser("memory", help="Inspect persisted short-term and long-term memory")
     memory_parser.add_argument("--session-id", default="default-session", help="Session id for short-term memory")
@@ -120,6 +135,51 @@ def run_memory(session_id: str, user_id: str, message_window: int) -> int:
     return 0
 
 
+def run_enrich_kb(
+    category: str | None,
+    product_id: str | None,
+    limit: int | None,
+    dry_run: bool,
+    output_dir: str | None,
+    source_mode: str,
+) -> int:
+    agent = BeautyAdvisorAgent()
+    enricher = KnowledgeEnricher(ResearchToolbox(), llm=agent.llm)
+    report = enricher.run(
+        category=category,
+        product_id=product_id,
+        limit=limit,
+        dry_run=dry_run,
+        output_dir=output_dir,
+        source_mode=source_mode,
+    )
+    print("=== Knowledge Enrichment Report ===")
+    print(f"run_id: {report.run_id}")
+    print(f"source_mode: {report.source_mode}")
+    print(f"processed_products: {report.processed_products}")
+    print(f"generated_candidates: {report.generated_candidates}")
+    print(f"kept_candidates: {report.kept_candidates}")
+    print(f"rejected_candidates: {report.rejected_candidates}")
+    print(f"deduped_candidates: {report.deduped_candidates}")
+    if report.failed_products:
+        print("failed_products:")
+        for item in report.failed_products:
+            print(f"- {item['product_id']}: {item['error']}")
+    if not dry_run:
+        print(f"output_file: {report.output_file}")
+        print(f"report_file: {report.report_file}")
+    return 0
+
+
+def run_approve_kb(approve_file: str, output_dir: str | None) -> int:
+    result = approve_candidates(staging_file=approve_file, output_dir=output_dir)
+    print("=== Knowledge Approve Result ===")
+    print(f"approved_count: {result['approved_count']}")
+    print(f"snapshot_path: {result['snapshot_path']}")
+    print(f"archived_file: {result['archived_file']}")
+    return 0
+
+
 def run_eval(dataset: str, case_id: str | None) -> int:
     try:
         result = run_evals(dataset_path=dataset, case_id=case_id)
@@ -143,6 +203,17 @@ def main(argv: list[str] | None = None) -> int:
         return run_kb(args.query, args.top_k)
     if args.command == "memory":
         return run_memory(args.session_id, args.user_id, args.message_window)
+    if args.command == "enrich-kb":
+        return run_enrich_kb(
+            args.category,
+            args.product_id,
+            args.limit,
+            args.dry_run,
+            args.output_dir,
+            args.source_mode,
+        )
+    if args.command == "approve-kb":
+        return run_approve_kb(args.approve_file, args.output_dir)
     if args.command == "eval":
         return run_eval(args.dataset, args.case_id)
 

@@ -143,3 +143,41 @@ class MultiAgentStep:
 class PlanStep:
     title: str
     done: bool = False
+
+
+@dataclass(slots=True)
+class StagedKnowledgeCandidate:
+    id: str
+    title: str
+    category: str
+    tags: list[str] = field(default_factory=list)
+    product_ids: list[str] = field(default_factory=list)
+    concerns: list[str] = field(default_factory=list)
+    skin_types: list[str] = field(default_factory=list)
+    ingredients: list[str] = field(default_factory=list)
+    scenarios: list[str] = field(default_factory=list)
+    finish_preferences: list[str] = field(default_factory=list)
+    evidence_type: str = "general"
+    content: str = ""
+    source_urls: list[str] = field(default_factory=list)
+    source_titles: list[str] = field(default_factory=list)
+    generator_product_id: str = ""
+    generator_product_name: str = ""
+    confidence_score: float = 0.0
+    quality_flags: list[str] = field(default_factory=list)
+    dedupe_key: str = ""
+    run_id: str = ""
+
+
+@dataclass(slots=True)
+class EnrichmentRunReport:
+    run_id: str
+    source_mode: str
+    generated_candidates: int
+    kept_candidates: int
+    rejected_candidates: int
+    deduped_candidates: int
+    processed_products: int
+    failed_products: list[dict[str, str]] = field(default_factory=list)
+    output_file: str = ""
+    report_file: str = ""
