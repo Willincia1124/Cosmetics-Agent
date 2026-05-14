@@ -7,7 +7,7 @@ from .guardrails import build_global_cautions
 from .llm import LLMClient
 from .models import MultiAgentStep, PlanStep, Recommendation, UserProfile
 from .parser import build_clarifying_questions
-from .rag import retrieve_knowledge
+from .rag import retrieve_knowledge, retrieve_safety_knowledge
 from .recommender import recommend_products
 from .research import ResearchOrchestrator
 
@@ -138,17 +138,21 @@ class ProductSelectionAgent:
         llm: LLMClient | None,
     ) -> tuple[list, list[Recommendation], str, MultiAgentStep]:
         retrieved_knowledge = retrieve_knowledge(profile)
-        recommendations = recommend_products(profile, top_k=top_k, retrieved_knowledge=retrieved_knowledge)
+        safety_knowledge = retrieve_safety_knowledge(profile)
+        merged_knowledge = _merge_knowledge(retrieved_knowledge, safety_knowledge)
+        recommendations = recommend_products(profile, top_k=top_k, retrieved_knowledge=merged_knowledge)
         llm_summary = ""
         if llm is not None and recommendations:
-            recommendations, llm_summary = llm.rerank_and_explain(profile, recommendations, retrieved_knowledge)
+            recommendations, llm_summary = llm.rerank_and_explain(profile, recommendations, merged_knowledge)
         output = [
-            f"检索到 {len(retrieved_knowledge)} 条知识片段",
+            f"检索到 {len(merged_knowledge)} 条知识片段",
             f"选出 {len(recommendations)} 个候选商品",
         ]
+        if safety_knowledge:
+            output.append(f"额外补入 {len(safety_knowledge)} 条安全/修护知识")
         if llm_summary:
             output.append("使用 LLM 对候选顺序做了复核")
-        return retrieved_knowledge, recommendations, llm_summary, MultiAgentStep(
+        return merged_knowledge, recommendations, llm_summary, MultiAgentStep(
             agent_name=self.name,
             responsibility=self.responsibility,
             input_summary=f"category={profile.desired_categories or ['unknown']} | concerns={profile.concerns or ['unknown']}",
@@ -320,3 +324,14 @@ def _mark_done(plan: list[PlanStep], index: int) -> None:
 def _format_plan_step(step: PlanStep) -> str:
     prefix = "[x]" if step.done else "[ ]"
     return f"{prefix} {step.title}"
+
+
+def _merge_knowledge(primary: list, extra: list) -> list:
+    merged = list(primary)
+    seen = {item.id for item in primary}
+    for chunk in extra:
+        if chunk.id in seen:
+            continue
+        merged.append(chunk)
+        seen.add(chunk.id)
+    return merged

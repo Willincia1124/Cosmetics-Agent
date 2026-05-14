@@ -63,6 +63,9 @@ class KnowledgeChunk:
     concerns: list[str] = field(default_factory=list)
     skin_types: list[str] = field(default_factory=list)
     ingredients: list[str] = field(default_factory=list)
+    scenarios: list[str] = field(default_factory=list)
+    finish_preferences: list[str] = field(default_factory=list)
+    evidence_type: str = "general"
     score: float = 0.0
 
 

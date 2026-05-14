@@ -6,11 +6,11 @@ from .models import Category, SkinType, UserProfile
 
 
 SKIN_TYPE_KEYWORDS: dict[SkinType, tuple[str, ...]] = {
-    "dry": ("干皮", "干肌", "沙漠皮", "起皮"),
-    "oily": ("油皮", "大油皮", "易出油"),
-    "combination": ("混油", "混合", "混干"),
+    "dry": ("干皮", "干肌", "沙漠皮", "起皮", "拔干", "干燥"),
+    "oily": ("油皮", "大油皮", "易出油", "爱出油", "油光"),
+    "combination": ("混油", "混合", "混干", "t区出油", "外油内干"),
     "sensitive": ("敏感肌", "敏肌", "易敏", "泛红", "敏感"),
-    "acne_prone": ("痘肌", "闭口", "粉刺", "闷痘", "易长痘"),
+    "acne_prone": ("痘肌", "闭口", "粉刺", "闷痘", "易长痘", "爆痘", "长痘"),
     "normal": ("中性皮",),
     "unknown": (),
 }
@@ -18,13 +18,13 @@ SKIN_TYPE_KEYWORDS: dict[SkinType, tuple[str, ...]] = {
 CONCERN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "hydrating": ("补水", "保湿", "干燥"),
     "brightening": ("提亮", "美白", "暗沉"),
-    "oil_control": ("控油", "出油"),
-    "anti_acne": ("祛痘", "抗痘", "不闷痘", "闭口"),
+    "oil_control": ("控油", "出油", "油光", "持妆控油"),
+    "anti_acne": ("祛痘", "抗痘", "不闷痘", "闭口", "不致痘", "痘痘"),
     "barrier_support": ("修护", "维稳", "屏障"),
     "soothing": ("舒缓", "泛红", "镇静"),
     "uv_protection": ("防晒", "防晒霜", "防晒乳"),
-    "light_coverage": ("轻薄底妆", "伪素颜"),
-    "long_wear": ("持妆", "不脱妆"),
+    "light_coverage": ("轻薄底妆", "伪素颜", "自然妆感"),
+    "long_wear": ("持妆", "不脱妆", "不斑驳", "不暗沉"),
 }
 
 CATEGORY_KEYWORDS: dict[Category, tuple[str, ...]] = {
@@ -50,7 +50,7 @@ INGREDIENT_CANONICAL = {
 }
 
 SCENARIO_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "daily": ("通勤", "上班", "日常"),
+    "daily": ("通勤", "上班", "日常", "日用", "天天用"),
     "summer": ("夏天", "夏季"),
     "winter": ("冬天", "秋冬"),
     "dating": ("约会", "见面", "出片"),
@@ -86,9 +86,9 @@ def parse_user_query(query: str) -> UserProfile:
         if any(keyword in query for keyword in keywords):
             profile.scenarios.append(scenario)
 
-    if any(token in query for token in ("清爽", "轻薄", "不黏", "不厚重")):
+    if any(token in query for token in ("清爽", "轻薄", "不黏", "不厚重", "成膜快", "不搓泥", "好推开")):
         profile.finish_preferences.append("light")
-    if any(token in query for token in ("滋润", "润", "奶油肌", "光泽")):
+    if any(token in query for token in ("滋润", "润", "奶油肌", "光泽", "水光")):
         profile.finish_preferences.append("glowy")
     if any(token in query for token in ("雾面", "哑光")):
         profile.finish_preferences.append("matte")

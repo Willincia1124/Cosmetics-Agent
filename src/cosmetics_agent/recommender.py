@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .catalog import PRODUCTS
 from .models import KnowledgeChunk, Product, Recommendation, UserProfile
-from .rag import evidence_for_product
+from .rag import build_evidence_reason, evidence_for_product
 
 
 def retrieve_candidates(profile: UserProfile) -> list[Product]:
@@ -87,7 +87,7 @@ def score_product(
         evidence = evidence_for_product(product, profile, retrieved_knowledge)
         if evidence:
             score += min(2.0, 0.8 * len(evidence))
-            reasons.append("命中了与该产品相关的知识库依据")
+            reasons.extend(_build_evidence_reasons(product, profile, evidence))
 
     if not reasons:
         reasons.append("综合表现均衡，可作为备选")
@@ -108,3 +108,16 @@ def recommend_products(
     for item in top_items:
         item.alternatives = [name for name in names if name != item.product.name][:2]
     return top_items
+
+
+def _build_evidence_reasons(
+    product: Product,
+    profile: UserProfile,
+    evidence: list[KnowledgeChunk],
+) -> list[str]:
+    reasons: list[str] = []
+    for chunk in evidence[:2]:
+        reason = build_evidence_reason(chunk, product, profile)
+        if reason not in reasons:
+            reasons.append(reason)
+    return reasons
