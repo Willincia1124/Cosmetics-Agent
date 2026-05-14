@@ -61,6 +61,26 @@ export LIVE_TOOLS_ENABLED=1
 
 然后再运行 CLI 或 Web 服务。
 
+## 本地向量检索
+
+项目现在支持本地 `Chroma` 持久化检索，不需要额外注册账号，默认会把向量索引保存在：
+
+`/Users/jieruiliu/Cosmetics-Agent/.cosmetics_agent/chroma`
+
+默认行为：
+
+- 如果本地已安装 `chromadb`，知识库检索会自动走 `Chroma hybrid retrieval`
+- 如果不可用，会自动回退到原来的规则/关键词检索，不影响项目运行
+
+可选配置：
+
+```bash
+export VECTOR_STORE_ENABLED=1
+export VECTOR_STORE_PROVIDER=chroma
+export CHROMA_PERSIST_PATH=/your/local/path
+export CHROMA_COLLECTION_NAME=knowledge_base
+```
+
 ## Sample Input
 
 ```text

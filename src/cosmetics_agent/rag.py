@@ -5,7 +5,9 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from .config import VectorStoreConfig
 from .models import KnowledgeChunk, Product, UserProfile
+from .vector_store import LocalVectorStore
 
 
 TOKEN_PATTERN = re.compile(r"[a-z0-9_+.-]+", re.IGNORECASE)
@@ -62,12 +64,24 @@ def load_knowledge_base() -> list[KnowledgeChunk]:
     return chunks
 
 
+@lru_cache(maxsize=1)
+def _vector_store() -> LocalVectorStore:
+    return LocalVectorStore(VectorStoreConfig.from_env())
+
+
+def _ensure_vector_index() -> None:
+    store = _vector_store()
+    if not store.enabled():
+        return
+    store.upsert_knowledge_chunks(load_knowledge_base())
+
+
 def retrieve_knowledge(profile: UserProfile, top_k: int = 5) -> list[KnowledgeChunk]:
     query_terms = build_query_terms(profile)
     if not query_terms:
         return []
 
-    candidate_pool = _recall_chunks(profile, query_terms, recall_k=max(top_k * 3, 8))
+    candidate_pool = _hybrid_recall_chunks(profile, query_terms, recall_k=max(top_k * 3, 8))
     if not candidate_pool:
         return []
     reranked = _rerank_chunks(candidate_pool, query_terms, profile)
@@ -112,6 +126,39 @@ def _recall_chunks(profile: UserProfile, query_terms: set[str], recall_k: int) -
         ranked.append(_clone_chunk_with_score(chunk, score))
     ranked.sort(key=lambda item: item.score, reverse=True)
     return ranked[:recall_k]
+
+
+def _hybrid_recall_chunks(profile: UserProfile, query_terms: set[str], recall_k: int) -> list[KnowledgeChunk]:
+    lexical = _recall_chunks(profile, query_terms, recall_k=recall_k)
+    semantic = _vector_recall_chunks(profile, recall_k=recall_k)
+    merged: dict[str, KnowledgeChunk] = {}
+    for chunk in lexical:
+        merged[chunk.id] = chunk
+    for chunk in semantic:
+        existing = merged.get(chunk.id)
+        if existing is None or chunk.score > existing.score:
+            merged[chunk.id] = chunk
+    ranked = sorted(merged.values(), key=lambda item: item.score, reverse=True)
+    return ranked[:recall_k]
+
+
+def _vector_recall_chunks(profile: UserProfile, recall_k: int) -> list[KnowledgeChunk]:
+    _ensure_vector_index()
+    store = _vector_store()
+    if not store.enabled():
+        return []
+    query_text = _build_vector_query(profile)
+    rows = store.query(query_text=query_text, top_k=recall_k)
+    chunks_by_id = {chunk.id: chunk for chunk in load_knowledge_base()}
+    recalled: list[KnowledgeChunk] = []
+    for row in rows:
+        chunk = chunks_by_id.get(row["id"])
+        if chunk is None or not _chunk_allowed_for_profile(chunk, profile):
+            continue
+        distance = float(row.get("distance", 0.0))
+        score = max(0.0, 6.0 - distance)
+        recalled.append(_clone_chunk_with_score(chunk, score))
+    return recalled
 
 
 def _rerank_chunks(
@@ -193,6 +240,29 @@ def build_query_terms(profile: UserProfile) -> set[str]:
             terms.add(canonical)
             terms.update(aliases)
     return {term for term in terms if term}
+
+
+def vector_store_enabled() -> bool:
+    return _vector_store().enabled()
+
+
+def _build_vector_query(profile: UserProfile) -> str:
+    parts: list[str] = [profile.raw_query]
+    if profile.skin_types:
+        parts.append("肤质: " + " ".join(profile.skin_types))
+    if profile.concerns:
+        parts.append("诉求: " + " ".join(profile.concerns))
+    if profile.desired_categories:
+        parts.append("品类: " + " ".join(profile.desired_categories))
+    if profile.preferred_ingredients:
+        parts.append("偏好成分: " + " ".join(profile.preferred_ingredients))
+    if profile.avoided_ingredients:
+        parts.append("避开成分: " + " ".join(profile.avoided_ingredients))
+    if profile.scenarios:
+        parts.append("场景: " + " ".join(profile.scenarios))
+    if profile.finish_preferences:
+        parts.append("肤感: " + " ".join(profile.finish_preferences))
+    return " | ".join(parts)
 
 
 def build_evidence_reason(chunk: KnowledgeChunk, product: Product, profile: UserProfile) -> str:

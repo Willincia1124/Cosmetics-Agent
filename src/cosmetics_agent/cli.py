@@ -4,10 +4,11 @@ import argparse
 import sys
 
 from .agent import BeautyAdvisorAgent
+from .config import VectorStoreConfig
 from .evals import DEFAULT_EVAL_DATASET, format_eval_run, run_evals
 from .memory import SessionMemory
 from .parser import parse_user_query
-from .rag import retrieve_knowledge
+from .rag import retrieve_knowledge, vector_store_enabled
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -84,6 +85,8 @@ def run_repl(top_k: int, session_id: str, user_id: str, message_window: int) -> 
 def run_kb(query: str, top_k: int) -> int:
     profile = parse_user_query(query)
     chunks = retrieve_knowledge(profile, top_k=top_k)
+    vector_mode = "Chroma hybrid retrieval" if vector_store_enabled() else "Lexical fallback retrieval"
+    print(f"检索模式：{vector_mode}")
     if not chunks:
         print("没有检索到知识库片段。")
         return 0
@@ -128,6 +131,7 @@ def run_eval(dataset: str, case_id: str | None) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _ = VectorStoreConfig.from_env()
     parser = build_parser()
     args = parser.parse_args(argv)
 

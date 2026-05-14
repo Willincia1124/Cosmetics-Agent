@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(slots=True)
@@ -82,3 +83,28 @@ class ToolConfig:
         enabled = raw_enabled in {"1", "true", "yes", "on"}
         timeout_seconds = int(os.getenv("LIVE_TOOLS_TIMEOUT", "20").strip() or "20")
         return cls(enabled=enabled, timeout_seconds=timeout_seconds)
+
+
+@dataclass(slots=True)
+class VectorStoreConfig:
+    provider: str = "chroma"
+    enabled: bool = True
+    persist_path: Path = Path(__file__).resolve().parents[2] / ".cosmetics_agent" / "chroma"
+    collection_name: str = "knowledge_base"
+
+    @classmethod
+    def from_env(cls) -> "VectorStoreConfig":
+        raw_enabled = os.getenv("VECTOR_STORE_ENABLED", "1").strip().lower()
+        enabled = raw_enabled not in {"0", "false", "no", "off"}
+        persist_path = Path(
+            os.getenv(
+                "CHROMA_PERSIST_PATH",
+                str(Path(__file__).resolve().parents[2] / ".cosmetics_agent" / "chroma"),
+            ).strip()
+        )
+        return cls(
+            provider=os.getenv("VECTOR_STORE_PROVIDER", "chroma").strip().lower() or "chroma",
+            enabled=enabled,
+            persist_path=persist_path,
+            collection_name=os.getenv("CHROMA_COLLECTION_NAME", "knowledge_base").strip() or "knowledge_base",
+        )
