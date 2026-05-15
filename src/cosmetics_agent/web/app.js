@@ -11,10 +11,13 @@ const resetSessionBtn = document.getElementById("reset-session");
 const sessionSummary = document.getElementById("session-summary");
 const longTermMemories = document.getElementById("long-term-memories");
 const historyList = document.getElementById("history-list");
-const openControlsBtn = document.getElementById("open-controls");
+const openHistoryBtn = document.getElementById("open-history");
+const closeHistoryBtn = document.getElementById("close-history");
 const closeControlsBtn = document.getElementById("close-controls");
 const toggleDevModeBtn = document.getElementById("toggle-dev-mode");
+const heroCopy = document.getElementById("hero-copy");
 const controlDrawer = document.getElementById("control-drawer");
+const historyDrawer = document.getElementById("history-drawer");
 const panelBackdrop = document.getElementById("panel-backdrop");
 const template = document.getElementById("message-template");
 let devMode = false;
@@ -23,10 +26,14 @@ const assistantMessages = [];
 chatForm.addEventListener("submit", onSubmit);
 refreshSessionBtn.addEventListener("click", () => loadSession());
 resetSessionBtn.addEventListener("click", () => resetSession());
-openControlsBtn.addEventListener("click", () => toggleControls(true));
+openHistoryBtn.addEventListener("click", () => toggleHistory(true));
+closeHistoryBtn.addEventListener("click", () => toggleHistory(false));
 closeControlsBtn.addEventListener("click", () => toggleControls(false));
 toggleDevModeBtn.addEventListener("click", () => toggleDevMode());
-panelBackdrop.addEventListener("click", () => toggleControls(false));
+panelBackdrop.addEventListener("click", () => {
+  toggleControls(false);
+  toggleHistory(false);
+});
 
 addWelcomeMessage();
 loadSession();
@@ -128,12 +135,14 @@ function addWelcomeMessage(text = "你好，我已经准备好帮你做美妆/�
   const article = createMessageCard("assistant");
   article.querySelector(".message-body").innerHTML = `<p>${escapeHtml(text)}</p>`;
   chatThread.appendChild(article);
+  revealResults();
 }
 
 function appendUserMessage(text) {
   const article = createMessageCard("user");
   article.querySelector(".message-body").innerHTML = `<p>${escapeHtml(text)}</p>`;
   chatThread.appendChild(article);
+  revealResults();
   article.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
@@ -144,6 +153,7 @@ function appendAssistantMessage(payload) {
   body.innerHTML = renderAssistantSections(payload);
   assistantMessages.push({ body, payload });
   chatThread.appendChild(article);
+  revealResults();
   article.scrollIntoView({ behavior: "smooth", block: "end" });
 }
 
@@ -182,6 +192,7 @@ function appendSystemNotice(text) {
   const article = createMessageCard("assistant");
   article.querySelector(".message-body").innerHTML = `<p>${escapeHtml(text)}</p>`;
   chatThread.appendChild(article);
+  revealResults();
 }
 
 function renderHistory(messages) {
@@ -203,18 +214,34 @@ function renderHistory(messages) {
 }
 
 function toggleControls(open) {
+  toggleHistory(false);
   controlDrawer.classList.toggle("open", open);
   controlDrawer.setAttribute("aria-hidden", String(!open));
+  panelBackdrop.hidden = !open;
+}
+
+function toggleHistory(open) {
+  if (open) {
+    toggleControls(false);
+  }
+  historyDrawer.classList.toggle("open", open);
+  historyDrawer.setAttribute("aria-hidden", String(!open));
   panelBackdrop.hidden = !open;
 }
 
 function toggleDevMode() {
   devMode = !devMode;
   toggleDevModeBtn.setAttribute("aria-pressed", String(devMode));
-  toggleDevModeBtn.textContent = devMode ? "Develop Mode · ON" : "Develop Mode";
+  toggleDevModeBtn.textContent = devMode ? "Console · ON" : "Console";
+  toggleControls(devMode);
   assistantMessages.forEach((message) => {
     message.body.innerHTML = renderAssistantSections(message.payload);
   });
+}
+
+function revealResults() {
+  heroCopy.classList.add("compact");
+  chatThread.classList.remove("hidden");
 }
 
 function createMessageCard(role) {

@@ -7,58 +7,82 @@
     <link rel="stylesheet" href="/assets/app.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <aside class="history-sidebar">
-        <div class="history-header">
-          <div class="brand-kicker">Cosmetics Agent</div>
-          <h1>对话记录</h1>
-          <p>当前会话中的最近消息会收纳在这里。</p>
+    <div class="app-shell">
+      <header class="site-header">
+        <div class="brand-mark">
+          <span class="brand-icon">✦</span>
+          <span class="brand-name">美妆智选</span>
         </div>
+        <div class="header-actions">
+          <button id="open-history" class="header-button" type="button">History</button>
+          <button id="toggle-dev-mode" class="header-button console-button" type="button" aria-pressed="false">Console</button>
+        </div>
+      </header>
 
-        <section class="history-panel">
-          <div class="section-head">
-            <h2>本次会话</h2>
-            <button id="refresh-session" class="ghost small" type="button">刷新</button>
+      <main class="hero-shell">
+        <section class="hero-stage">
+          <div class="hero-backdrop"></div>
+          <div class="hero-overlay"></div>
+
+          <div class="hero-copy" id="hero-copy">
+            <p class="hero-kicker">YOUR PERSONAL BEAUTY CURATOR</p>
+            <h1>找到最适合<span>你的</span>护肤品</h1>
+            <p class="hero-description">告诉我你的肤质、预算、成分偏好和场景，我会帮你做更像真人导购的筛选与推荐。</p>
+
+            <form id="chat-form" class="hero-search">
+              <label class="search-field">
+                <span class="sr-only">输入你的需求</span>
+                <textarea
+                  id="chat-input"
+                  rows="1"
+                  placeholder="我是油皮，预算1000，想买精华液"
+                ></textarea>
+              </label>
+              <button id="send-btn" class="search-button" type="submit">
+                <span class="search-icon">⌕</span>
+                <span>搜索</span>
+              </button>
+            </form>
+
+            <div class="hero-meta">
+              <span>100+ 品牌</span>
+              <span>智能匹配</span>
+              <span>多平台比价</span>
+            </div>
           </div>
-          <div id="history-list" class="history-list"></div>
+
+          <section id="chat-thread" class="results-panel hidden"></section>
         </section>
-      </aside>
-
-      <main class="chat-layout">
-        <header class="topbar">
-          <div class="topbar-copy">
-            <div class="topbar-kicker">Beauty Advisor</div>
-            <h2>美妆导购助手</h2>
-            <p>描述你的肤质、预算和偏好，我会给出推荐、提醒和替代方案。</p>
-          </div>
-          <div class="topbar-actions">
-            <button id="toggle-dev-mode" class="ghost" type="button" aria-pressed="false">Develop Mode</button>
-            <button id="open-controls" class="ghost" type="button">控制面板</button>
-          </div>
-        </header>
-
-        <section id="chat-thread" class="chat-thread"></section>
-
-        <form id="chat-form" class="composer">
-          <textarea
-            id="chat-input"
-            placeholder="例如：我是混油痘肌，预算300，想找清爽不闷痘的防晒，最好避开香精。"
-            rows="3"
-          ></textarea>
-          <div class="composer-actions">
-            <div id="status-text" class="muted">准备就绪</div>
-            <button id="send-btn" type="submit">发送</button>
-          </div>
-        </form>
       </main>
     </div>
 
+    <div id="status-text" class="status-bar">准备就绪</div>
+
     <div id="panel-backdrop" class="panel-backdrop" hidden></div>
+
+    <aside id="history-drawer" class="history-drawer" aria-hidden="true">
+      <div class="drawer-head">
+        <div>
+          <div class="brand-kicker">Session History</div>
+          <h2>对话记录</h2>
+        </div>
+        <button id="close-history" class="ghost small" type="button">关闭</button>
+      </div>
+
+      <section class="history-panel">
+        <div class="section-head">
+          <h3>本次会话</h3>
+          <button id="refresh-session" class="ghost small" type="button">刷新</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+      </section>
+    </aside>
+
     <aside id="control-drawer" class="control-drawer" aria-hidden="true">
       <div class="drawer-head">
         <div>
-          <div class="brand-kicker">Control Panel</div>
-          <h2>会话设置</h2>
+          <div class="brand-kicker">Console</div>
+          <h2>开发者模式</h2>
         </div>
         <button id="close-controls" class="ghost small" type="button">关闭</button>
       </div>
@@ -81,7 +105,7 @@
 
       <section class="panel" id="memory-panel">
         <div class="section-head">
-          <h2>记忆概览</h2>
+          <h3>记忆概览</h3>
         </div>
         <div id="session-summary" class="muted">暂无会话摘要</div>
         <div id="long-term-memories" class="pill-list"></div>
@@ -97,4 +121,4 @@
 
     <script src="/assets/app.js" defer></script>
   </body>
-  </html>
+</html>
